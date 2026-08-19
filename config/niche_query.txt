@@ -1,0 +1,129 @@
+# =============================================================================
+# obelisk-hunt — TARGET NICHE
+#
+# This file records the single decision that determines what the whole sweep runs
+# over. Change it here and nowhere else; both selection scripts read it.
+#
+# FORMAT — two kinds of content, one file
+#   Lines whose first non-space character is '#', and blank lines, are ignored
+#   everywhere. Of what is left:
+#
+#     * a line matching  NICHE_<NAME>=<value>  is an OFFLINE DIRECTIVE, read only
+#       by scripts/04b_select_accessions_offline.sh;
+#     * any other line is THE ENTREZ QUERY, read only by
+#       scripts/04_select_accessions.sh.
+#
+#   Exactly ONE Entrez query line may be active. Both scripts enforce this and
+#   abort if they find zero or two, because the usual mistake is uncommenting the
+#   alternative query without commenting the default and silently sweeping a niche
+#   you did not choose. Keep each query on a single line.
+#
+#   The Entrez query and the NICHE_* directives express the same intent in two
+#   languages. Nothing checks that they agree — keep them in step by hand.
+#
+# -----------------------------------------------------------------------------
+# WHY "RNA-Seq"[Strategy] IS MANDATORY — do not delete it to widen the net
+# -----------------------------------------------------------------------------
+# Obelisks are single-stranded circular RNA elements with no known DNA
+# intermediate and no capsid. A DNA library cannot physically contain one. Every
+# DNA accession left in the query is triage compute spent on a guaranteed
+# negative, and every hit it produces is by construction an artefact.
+#
+# The same reasoning is why "metatranscriptomic"[Source] is the right companion
+# term for a host-associated microbial niche: it selects libraries built from
+# community RNA rather than host mRNA.
+#
+# -----------------------------------------------------------------------------
+# STEP 1 — INCUMBENT CHECK. Run this BEFORE committing to a niche, then monthly.
+# Record the date and the exact queries in your lab notebook.
+# -----------------------------------------------------------------------------
+# (a) LITERATURE — bioRxiv, PubMed, Google Scholar:
+#       obelisk rumen | obelisk poultry | obelisk chicken gut
+#       Oblin ruminant | viroid-like rumen metatranscriptome
+#
+# (b) OBJECT STORAGE — CORRECTION C-02, and the channel that actually decided this
+#     question. The original plan checked the literature only. The decisive
+#     incumbent artefact was never a paper: it is the Obelisk authors' own
+#     Logan-wide Oblin sweep, sitting unannounced in the same public bucket this
+#     pipeline streams contigs from. Artem Babaian is co-lead of Logan and senior
+#     author of Zheludev et al.; the two groups overlap. Check it every time:
+#
+#       source config/config.sh
+#       aws s3 ls --no-sign-request --recursive "$LOGAN_OBELISK/"
+#       # no aws CLI? the same listing over plain HTTPS:
+#       curl -s "https://logan-pub.s3.amazonaws.com/?list-type=2&prefix=paper/Obelisk/" \
+#         | tr '<' '\n' | sed -n 's/^Key>//p'
+#
+#     What to look for: any new object under paper/Obelisk/ dated after your last
+#     check, and specifically anything naming your niche or naming Logan v1.2.
+#     As of 2026-08-19 their sweep is v1.0-only (SRA through 2023-12-10), which is
+#     what leaves the v1.2 delta and the per-niche deep-assembly pass open.
+#
+# (c) SRA ITSELF — has someone deposited an obelisk-annotated assembly from your
+#     niche? Cheap, and it is not in either channel above:
+#       esearch -db nuccore -query 'obelisk[Title] AND rumen[All Fields]' | efetch -format docsum
+#
+# IF YOUR NICHE IS CLAIMED, SWITCH NICHES — NOT METHODS. Everything downstream of
+# this file is niche-agnostic and reusable; only this file has to change.
+#
+# =============================================================================
+# ACTIVE QUERY — rumen metatranscriptome
+# =============================================================================
+(rumen[All Fields] OR ruminal[All Fields]) AND "metatranscriptomic"[Source] AND "RNA-Seq"[Strategy]
+
+# =============================================================================
+# ALTERNATIVE — poultry caecal. Uncomment this and comment the block above.
+# Exactly one active query line may remain, or the scripts abort.
+# =============================================================================
+# (chicken[Organism] OR poultry[All Fields]) AND (cecum[All Fields] OR caecal[All Fields] OR gut[All Fields]) AND "RNA-Seq"[Strategy]
+
+# =============================================================================
+# OFFLINE-PATH DIRECTIVES — read only by scripts/04b_select_accessions_offline.sh
+#
+# The offline path has no Entrez parser. It filters Logan's own SRA metadata
+# dumps, so the niche has to be restated as literal predicates. Syntax is
+# NAME=value, one per line, '#' comments allowed. Repeat a key to add values;
+# values within one key are OR-ed, different keys are AND-ed.
+#
+#   NICHE_KEYWORD        matched WHOLE-WORD, case-insensitive, against the
+#                        organism name and the sample attribute values.
+#                        WHOLE-WORD MATTERS: "rumen" is a substring of
+#                        "instrument", and SRA attribute blobs are full of
+#                        instrument_model_sam. A substring filter for the rumen
+#                        niche selects essentially the entire archive.
+#   NICHE_TAXID          exact NCBI tax_id from stats/sra_taxid.csv.zst. A run is
+#                        kept if it matches a keyword OR a taxid (union), then the
+#                        strategy/source filters below are applied (intersection).
+#   NICHE_ASSAY_TYPE     exact match on the assay_type column (== LibraryStrategy).
+#                        RNA-Seq is mandatory, same reasoning as above.
+#   NICHE_LIBRARY_SOURCE exact match on the librarysource column. Leave both
+#                        METATRANSCRIPTOMIC and TRANSCRIPTOMIC in for a
+#                        host-associated niche: depositors label rumen community
+#                        RNA both ways and the distinction is not enforced.
+#
+# taxids below were read out of stats/sra_taxid.csv.zst on 2026-08-19, not
+# guessed. Verify any you add the same way before trusting it.
+# =============================================================================
+NICHE_KEYWORD=rumen
+NICHE_KEYWORD=ruminal
+NICHE_KEYWORD=reticulorumen
+NICHE_TAXID=1904483      # sheep gut metagenome
+NICHE_TAXID=506599       # bovine gut metagenome
+NICHE_TAXID=9913         # Bos taurus
+NICHE_TAXID=9940         # Ovis aries
+NICHE_TAXID=9925         # Capra hircus
+NICHE_TAXID=89462        # Bubalus bubalis
+NICHE_ASSAY_TYPE=RNA-Seq
+NICHE_LIBRARY_SOURCE=METATRANSCRIPTOMIC
+NICHE_LIBRARY_SOURCE=TRANSCRIPTOMIC
+
+# Poultry equivalent, kept in step with the alternative Entrez query above:
+# NICHE_KEYWORD=cecum
+# NICHE_KEYWORD=caecal
+# NICHE_KEYWORD=caecum
+# NICHE_KEYWORD=cecal
+# NICHE_TAXID=506600     # chicken gut metagenome
+# NICHE_TAXID=9031       # Gallus gallus
+# NICHE_ASSAY_TYPE=RNA-Seq
+# NICHE_LIBRARY_SOURCE=METATRANSCRIPTOMIC
+# NICHE_LIBRARY_SOURCE=TRANSCRIPTOMIC
