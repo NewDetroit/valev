@@ -64,6 +64,19 @@ def main() -> int:
     freeze = os.environ.get("LOGAN_FREEZE", "unknown")
     release = os.environ.get("LOGAN_RELEASE", "unknown")
 
+    pc_path = os.path.join(RESULTS, "positive_control_evidence.tsv")
+    if os.path.exists(pc_path):
+        pc_para = (
+            "The pipeline was validated first on a positive control: it recovers the known "
+            "Obelisk-S.s\nfrom *Streptococcus sanguinis* SK36 RNA-seq. Evidence in "
+            "`results/positive_control_evidence.tsv`.")
+    else:
+        pc_para = (
+            "**No positive control on record.** `results/positive_control_evidence.tsv` does "
+            "not exist,\nso GATE 1 has not been demonstrated for this run. Treat everything "
+            "below as unvalidated\nuntil `scripts/03_positive_control.sh` passes — without it "
+            "there is no evidence the\npipeline finds Obelisks even where they are known to be.")
+
     matrix = read_tsv(os.path.join(RESULTS, "replication_matrix.tsv"))
     if not matrix:
         sys.stderr.write("[17_wetlab_package] missing replication_matrix.tsv — run scripts/11 (exit 2)\n")
@@ -147,8 +160,7 @@ A computational search of this niche recovered {len(matrix)} candidate elements,
 {sum(1 for r in matrix if num(r,'n_bioprojects') >= min_bp)} are supported by independent
 replication across at least {min_bp} unrelated BioProjects.
 
-The pipeline was validated first on a positive control: it recovers the known Obelisk-S.s
-from *Streptococcus sanguinis* SK36 RNA-seq. Evidence in `results/positive_control_evidence.tsv`.
+{pc_para}
 
 ### Priority candidates
 

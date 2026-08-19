@@ -37,6 +37,7 @@ import argparse
 import io
 import os
 import sys
+import time
 import urllib.request
 
 import pyarrow.parquet as pq
@@ -57,8 +58,9 @@ class HTTPRangeFile(io.RawIOBase):
     columns we project. That is what lets a 1.6 GB file be queried without downloading it.
     """
 
-    def __init__(self, url: str, timeout: int = 120):
+    def __init__(self, url: str, timeout: int = 120, max_retries: int = 5):
         self.url, self.timeout, self._pos = url, timeout, 0
+        self.max_retries = max_retries
         self.n_requests = self.n_bytes = 0
         req = urllib.request.Request(url, method="HEAD")
         with urllib.request.urlopen(req, timeout=timeout) as r:
@@ -92,16 +94,38 @@ class HTTPRangeFile(io.RawIOBase):
         size = min(size, self.size - self._pos)
         if size <= 0:
             return b""
-        first, last = self._pos, self._pos + size - 1
-        req = urllib.request.Request(self.url, headers={"Range": f"bytes={first}-{last}"})
-        with urllib.request.urlopen(req, timeout=self.timeout) as r:
-            if r.status != 206:
-                raise RuntimeError(f"{self.url}: expected HTTP 206, got {r.status}")
-            data = r.read()
-        self.n_requests += 1
-        self.n_bytes += len(data)
-        self._pos += len(data)
-        return data
+        # Scanning all 38M rows takes hundreds of range requests, and S3 will
+        # occasionally truncate one (IncompleteRead) or drop a connection. A single
+        # transient failure must not lose a multi-minute scan, so short reads are
+        # topped up and hard failures retried with backoff.
+        out = bytearray()
+        want = size
+        attempt = 0
+        while len(out) < want:
+            first = self._pos + len(out)
+            last = self._pos + want - 1
+            req = urllib.request.Request(
+                self.url, headers={"Range": f"bytes={first}-{last}"})
+            try:
+                with urllib.request.urlopen(req, timeout=self.timeout) as r:
+                    if r.status not in (200, 206):
+                        raise RuntimeError(f"{self.url}: expected 206, got {r.status}")
+                    chunk = r.read()
+                self.n_requests += 1
+                self.n_bytes += len(chunk)
+                if not chunk:
+                    raise RuntimeError("empty range response")
+                out += chunk
+                attempt = 0
+            except Exception as exc:  # noqa: BLE001 — any transport failure is retryable
+                attempt += 1
+                if attempt > self.max_retries:
+                    raise RuntimeError(
+                        f"{self.url}: range {first}-{last} failed after "
+                        f"{self.max_retries} retries: {exc}") from exc
+                time.sleep(min(2 ** attempt, 30))
+        self._pos += len(out)
+        return bytes(out)
 
     def readinto(self, buf) -> int:
         data = self.read(len(buf))

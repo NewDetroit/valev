@@ -63,7 +63,12 @@ for T in "$WORK"/deep/*/transcripts.fasta; do
   ACC=$(basename "$(dirname "$T")")
   n_in=$((n_in + 1))
   D="$WORK/vnom/$ACC"
-  [ -e "$D/.done" ] && continue
+  if [ -e "$D/.done" ]; then
+    # Count prior nominations too, or a resumed run trips the "nothing nominated"
+    # gate below and never pools.
+    if [ -d "$D/4_final_clusters" ]; then n_ok=$((n_ok + 1)); else n_empty=$((n_empty + 1)); fi
+    continue
+  fi
   echo "=== VNom $ACC ==="
   mkdir -p "$D"
 
@@ -136,7 +141,11 @@ for i in ids(f"{RESULTS}/candidates.fna"):
 dup = f"{WORK}/rmdup_duplicates.txt"
 if os.path.exists(dup):
     for line in open(dup):
-        parts = [p.strip() for p in re.split(r"[,\t]", line.strip()) if p.strip()]
+        # `seqkit rmdup -D` prefixes each line with the duplicate COUNT, so a naive
+        # split adds that integer as a source accession. Every id we pool was renamed
+        # <ACC>__<id> by the loop above, so require that marker.
+        parts = [p.strip() for p in re.split(r"[,\t]", line.strip())
+                 if p.strip() and "__" in p]
         rep = next((p for p in parts if p in sources), None)
         if rep is None:
             continue

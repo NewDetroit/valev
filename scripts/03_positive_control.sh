@@ -108,7 +108,10 @@ PY
 
 # --------------------------------------------------------------------------
 stage_triage() {
-  [ -s "$RUNS_TSV" ] || { echo "no $RUNS_TSV — run the runinfo stage first" >&2; exit 2; }
+  # --runs must work with any starting stage: it is the only route through GATE 1
+  # when NCBI is blocked, and the failure message above tells operators to use it.
+  [ -s "$RUNS_TSV" ] || [ -z "$RUNS_FILE" ] || stage_runinfo
+  [ -s "$RUNS_TSV" ] || { echo "no $RUNS_TSV — run the runinfo stage first, or pass --runs FILE" >&2; exit 2; }
   [ -s "$REF_OBLIN_DMND.dmnd" ] || { echo "missing $REF_OBLIN_DMND.dmnd — run scripts/02" >&2; exit 2; }
   command -v diamond >/dev/null 2>&1 || { echo "missing diamond" >&2; exit 2; }
 
@@ -125,13 +128,24 @@ stage_triage() {
       else
         FETCH=(curl -sS --fail --max-time 3600 "$URL")
       fi
+      # Prove the object is fetchable BEFORE running diamond, so a network failure
+      # is never recorded as "searched, found nothing". Caching a false NONE here
+      # would fail GATE 1 for a reason its own debug list does not mention.
+      if ! curl -s -o /dev/null -I --fail -m 120 "$URL"; then
+        echo "  $ACC: cannot reach $URL — not caching a result" >&2
+        continue
+      fi
       # C-04: qseq_translated, not qseq.
-      diamond blastx --db "$REF_OBLIN_DMND" \
+      if diamond blastx --db "$REF_OBLIN_DMND" \
         --query <("${FETCH[@]}" 2>/dev/null | zstd -dc 2>/dev/null) \
         --evalue "$DIAMOND_EVALUE" $DIAMOND_SENS --threads "$THREADS" \
         --outfmt 6 qseqid sseqid pident length evalue bitscore qseq_translated \
-        --out "$OUT" --quiet 2>>"$LOGS/pc.err" || : > "$OUT"
-      : > "$PC/$ACC.done"
+        --out "$OUT" --quiet 2>>"$LOGS/pc.err"; then
+        : > "$PC/$ACC.done"
+      else
+        echo "  $ACC: diamond failed — not caching a result (see $LOGS/pc.err)" >&2
+        rm -f "$OUT"; continue
+      fi
     fi
     N=$( [ -s "$OUT" ] && wc -l < "$OUT" || echo 0 )
     BEST=$( [ -s "$OUT" ] && sort -k5,5g "$OUT" | head -1 | cut -f5 || echo "NA" )

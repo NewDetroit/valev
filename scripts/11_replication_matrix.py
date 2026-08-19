@@ -93,11 +93,14 @@ def main() -> int:
         die(f"[11_replication_matrix] no accession directories under {vnom_root} (exit 2)", 2)
 
     for acc in accs:
-        # VNom writes to a 4_final_clusters subdirectory (see C-15); fall back to
-        # the accession directory itself so a hand-placed FASTA still works.
+        # VNom writes nominations to 4_final_clusters (C-15). Do NOT fall back to the
+        # accession directory: scripts/08 stages VNom's INPUT there as
+        # <ACC>_contigs.fasta, so a fallback would blast the entire assembly into the
+        # occurrence map and inflate n_bioprojects — letting GATE 3, the contamination
+        # control, pass on artifacts. No 4_final_clusters means nothing was nominated.
         path = os.path.join(vnom_root, acc, "4_final_clusters")
         if not os.path.isdir(path):
-            path = os.path.join(vnom_root, acc)
+            continue
         fastas = sorted(f for f in os.listdir(path)
                         if f.endswith((".fasta", ".fa", ".fna")))
         if not fastas:

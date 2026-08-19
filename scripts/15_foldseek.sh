@@ -36,8 +36,12 @@ MSG
   mkdir -p "$WORK/foldseek"
   : > "$RESULTS/foldseek_hits.tsv"
   printf 'query\ttarget\tfident\talnlen\tevalue\tbits\tprob\n' >> "$RESULTS/foldseek_hits.tsv"
-  for db in "${FOLDSEEK_DBS:-afdb50 pdb}"; do
-    [ -d "$WORK/foldseek/$db" ] || foldseek databases "$db" "$WORK/foldseek/$db" "$WORK/foldseek/tmp"
+  # Must word-split into separate database names; a quoted expansion iterates once
+  # over the single joined word "afdb50 pdb" and foldseek then fails.
+  read -r -a DBS <<< "${FOLDSEEK_DBS:-afdb50 pdb}"
+  for db in "${DBS[@]}"; do
+    # foldseek writes a file prefix, not a directory, so test the prefix itself.
+    [ -s "$WORK/foldseek/$db" ] || foldseek databases "$db" "$WORK/foldseek/$db" "$WORK/foldseek/tmp"
     foldseek easy-search "${PDBS[@]}" "$WORK/foldseek/$db" \
       "$WORK/foldseek/hits_$db.tsv" "$WORK/foldseek/tmp" \
       --format-output "query,target,fident,alnlen,evalue,bits,prob" \

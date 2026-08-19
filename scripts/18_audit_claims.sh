@@ -45,7 +45,9 @@ done
 echo
 echo "--- C-07: stats parquet schema ---"
 if python3 -c "import pyarrow" 2>/dev/null; then
-  python3 - <<'PY' || echo "  FAIL  parquet schema probe errored"
+  # Must feed ok/bad, not print its own verdict — otherwise a renamed column
+  # leaves $FAIL at 0 and the audit exits 0 reporting "0 failed".
+  if PROBE=$(python3 - <<'PARQUET_PROBE'
 import io, os, sys, urllib.request
 import pyarrow.parquet as pq
 class H(io.RawIOBase):
@@ -68,9 +70,13 @@ class H(io.RawIOBase):
 url=f"{os.environ['LOGAN_HTTPS']}/stats/{os.environ['LOGAN_STATS_PARQUET']}"
 col=os.environ["LOGAN_SIZE_COL"]
 pf=pq.ParquetFile(H(url)); names=pf.schema_arrow.names
-print(f"  {'PASS' if col in names else 'FAIL'}  {os.environ['LOGAN_STATS_PARQUET']}: "
-      f"{pf.metadata.num_rows:,} rows, LOGAN_SIZE_COL='{col}' {'present' if col in names else 'ABSENT'}")
-PY
+print(f"{os.environ['LOGAN_STATS_PARQUET']}: {pf.metadata.num_rows:,} rows, "
+      f"LOGAN_SIZE_COL='{col}' {'present' if col in names else 'ABSENT'}")
+sys.exit(0 if col in names else 1)
+PARQUET_PROBE
+  ); then ok "${PROBE:-parquet schema carries $LOGAN_SIZE_COL}"
+  else bad "parquet schema: ${PROBE:-probe errored} (LOGAN_SIZE_COL=$LOGAN_SIZE_COL)"
+  fi
 else
   skip "pyarrow not installed — cannot probe the parquet schema"
 fi
