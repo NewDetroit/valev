@@ -1,0 +1,85 @@
+# =============================================================================
+# obelisk-hunt conda environment.
+#
+# This is PLAN.md Task 2 Step 1's dependency list, kept verbatim, with the
+# deltas below. See docs/CORRECTIONS.md for the numbered corrections; this
+# file itself introduces no new correction (all changes are additive tooling,
+# not fixes to a defect), just the explicit instructions layered on Task 2:
+#
+#   - diamond=2.1.9 and hmmer=3.4 keep their exact version pins from the plan.
+#     diamond in particular must stay >=2.0.8 so `--outfmt 6 ... qseq_translated`
+#     is available (correction C-04 — Task 8 needs *translated* protein
+#     sequence out of `diamond blastx`, not nucleotide `qseq`, to hand to
+#     `hmmsearch`). Do not bump this without re-reading C-04 and re-checking
+#     scripts/06_collect_hits.py's field list.
+#   - zstd: already in the plan's list — Logan's contigs/unitigs ship as
+#     `.zst` (`zstdcat`/`zstd -d`), and scripts/00_verify_logan.sh's
+#     `--download` path and every later fetch depend on it.
+#   - awscli: added. Every heavy-lift script (00, 01, 05, 07, ...) shells out
+#     to `aws s3 cp/ls ... --no-sign-request` per the plan. It is genuinely
+#     optional only for scripts/00_verify_logan.sh, which falls back to
+#     curl + anonymous HTTPS when aws is absent (true of some dev/CI
+#     containers) — everything past Phase 0 assumes it exists. Verified
+#     2026-08-19: conda-forge's `awscli` package currently builds AWS CLI
+#     v2 (2.36.25), matching the plan's own "aws-cli/2.x.x" expectation.
+#   - parallel: added. GNU Parallel, for fanning out per-accession work
+#     outside of a SLURM array (local/interactive runs, or bounding
+#     concurrency within one array task) — convenient for testing the
+#     triage sweep (Task 7) without a cluster.
+#
+# Existence (not full dependency-solve) verified 2026-08-19 against the
+# conda-forge and bioconda channeldata.json indices: `awscli`, `parallel`
+# (conda-forge) and `hmmer` (bioconda, latest=3.4, matches the pin exactly)
+# all resolve as package names. `diamond`'s bioconda *latest* is 2.2.5, not
+# 2.1.9 — channeldata.json only reports the latest version, so the exact
+# 2.1.9 build's continued availability was NOT independently reconfirmed
+# here; C-04's own verification is the basis for keeping this pin (see
+# docs/CORRECTIONS.md). `circuclust` is correctly absent from both channels
+# and from this file — Task 2 Step 5 installs it as a precompiled binary,
+# not a conda package.
+#
+# `conda env create -f env/environment.yml` was NOT run in this container
+# (no conda here — see docs/RUNBOOK.md and GLOBAL.md). Only package-name
+# existence was checked, not a full solve; run this for real on the cluster
+# and read any solver conflict before assuming the list is final.
+# =============================================================================
+name: obelisk
+channels:
+  - conda-forge
+  - bioconda
+dependencies:
+  - python=3.11
+  - pandas
+  - pyarrow
+  - biopython
+  - numpy
+  - matplotlib
+  - seaborn
+  - zstd
+  - awscli
+  - parallel
+  - diamond=2.1.9        # pinned >=2.0.8 for qseq_translated — C-04, do not bump casually
+  - hmmer=3.4
+  - mafft
+  - iqtree
+  - seqkit
+  - samtools
+  - minimap2
+  - bowtie2
+  - spades
+  - fastp
+  - sra-tools
+  - viennarna
+  - infernal
+  - cd-hit
+  - blast
+  - entrez-direct
+  - pip
+  - pip:
+      # Both pip-only (no conda-forge/bioconda build) and used only for
+      # optional exploratory plotting — no script in this pipeline imports
+      # either. If `conda env create` fails specifically on this pip stage,
+      # comment these two lines out and retry; nothing downstream depends
+      # on them resolving.
+      - rcgrep
+      - logomaker
