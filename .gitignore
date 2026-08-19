@@ -1,0 +1,31 @@
+# Disposable scratch — see PLAN.md "Responsibility boundaries"
+work/*
+!work/.gitkeep
+logs/*
+!logs/.gitkeep
+*.log
+
+# Large reference downloads (rebuild with scripts/01_fetch_references.sh)
+ref/*.parquet
+ref/*.zst
+ref/*.dmnd
+ref/*.fna
+ref/*.faa
+ref/*.hmm
+ref/*.h3?
+ref/*.tsv
+
+# Pipeline outputs (rebuild by running the pipeline)
+results/*
+!results/.gitkeep
+!results/figures/
+results/figures/*
+!results/figures/.gitkeep
+
+# Third-party clones (scripts/01_fetch_references.sh clones these)
+VNom/
+circuclust/
+
+__pycache__/
+*.pyc
+.DS_Store
