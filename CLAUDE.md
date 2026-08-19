@@ -24,8 +24,8 @@ instead of millions. Three gates sit between the stages and each one can stop th
 1. **`config/config.sh` is the single source of truth.** Every path and threshold lives
    there. Never hardcode one. Every script starts by sourcing it.
 2. **Read `docs/CORRECTIONS.md`.** The original plan (`docs/PLAN.original.md`, preserved
-   verbatim) contains 13 defects, several of which silently produce wrong science. They are
-   fixed in the code and each fix is numbered `C-01`..`C-13`. If code looks like it disagrees
+   verbatim) contains 15 defects, several of which silently produce wrong science. They are
+   fixed in the code and each fix is numbered `C-01`..`C-15`. If code looks like it disagrees
    with the plan, it is probably deliberate — check there before "fixing" it back.
 3. **`docs/LEDGER.md`** records what has been built and reviewed.
 
@@ -85,5 +85,5 @@ Minia3  k=31                       (Logan's assembler; informational)
 
 `docs/CORRECTIONS.md` ends with an audited provenance table. Anything not in it — including
 several figures quoted in the original plan — is **unverified**; `OPEN-C` lists exactly which.
-Run `scripts/15_audit_claims.sh` to refresh what can be checked automatically. Do not put an
+Run `scripts/18_audit_claims.sh` to refresh what can be checked automatically. Do not put an
 unverified figure on a poster.

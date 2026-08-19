@@ -348,6 +348,87 @@ if NCBI reorders.
 
 ---
 
+## C-14 — MAJOR — Every circuclust flag in the plan is wrong
+
+**Plan text (Task 14, Step 5):**
+
+> ```bash
+> "$CIRCUCLUST/bin/circuclust" --input "$WORK/all_obelisks.fna" --id 0.80 \
+>   --output "$RESULTS/clusters80.tsv"
+> ```
+> (Confirm exact flags against circuclust's README.)
+
+The plan flagged this as unverified (its Known Unknown #5). It is now verified, and all
+three flags are wrong. From circuclust's README, fetched 2026-08-19 from
+`raw.githubusercontent.com/rcedgar/circuclust/master/README.md`:
+
+> ```
+> circuclust -cluster seqs.fa -id 0.9 -fastaout centroids.fa -tsvout hits.tsv
+> ```
+
+Single dashes, not double. The input file is the **value of `-cluster`**, not of `--input`.
+Output is split between `-fastaout` (centroids) and `-tsvout` (assignments); there is no
+`--output` at all. The plan's command would fail immediately.
+
+**Fix.** `scripts/16_cluster.sh` uses the documented form and runs both the 80% and 95%
+levels, which the `Obelisk_X_Y_Z` convention requires.
+
+---
+
+## C-15 — CRITICAL — The plan's VNom invocation cannot work
+
+**Plan text (Task 10 Step 1, and identically in Task 5 Step 6):**
+
+> ```bash
+> python "$VNOM/VNom.py" -i "$T" \
+>   -max 2000 -CF_k 10 -CF_simple 0 -CF_tandem 1 -USG_vs_all 1 \
+>   -o "$WORK/vnom/$ACC"
+> ```
+> where `$T` is `$WORK/deep/<ACC>/transcripts.fasta`.
+
+The plan flagged the invocation as unverified (its Known Unknown #4). It is now verified
+against VNom's README, fetched 2026-08-19, whose own worked example is:
+
+> ```
+> python ../VNom.py -i peach_subset -max 2000 -CF_k 10 -CF_simple 0 -CF_tandem 1 -USG_vs_all 1
+> ```
+
+Four separate incompatibilities, any one of which breaks the run:
+
+1. **`-i` takes a basename, not a path, and without the extension.** The README is explicit:
+   *"you must specify this single underscore name without the file ending for VNom"*. The
+   plan passes a full path ending in `.fasta`.
+2. **There is no `-o` flag.** Output goes to a `4_final_clusters` directory relative to the
+   working directory: *"outputs are stored to `4_final_clusters` (so if this dir wasn't
+   written, VNom failed to nominate viroid-like contigs)"*. Isolating accessions therefore
+   requires running each in its own directory.
+3. **The filename must contain exactly one underscore** and end in `.fasta` — *"X_Y.fasta is
+   good, but XY.fasta is bad"*. `transcripts.fasta` contains none.
+4. **seqIDs must keep the default rnaSPAdes layout.** *"adding more underscores will cause
+   VNom to crash"*. The README's example substitutes the accession for the literal `NODE`.
+
+Two further constraints the plan never mentions, both from the same README:
+
+- **Input must come from stranded RNA-seq.** VNom's third filter keeps only clusters
+  containing both polarities, which an unstranded library cannot satisfy. The author notes
+  this is where VNom most often stops.
+- **VNom depends on circuclust, USEARCH and MARS** installed under `VNom/dependencies/`.
+  The plan's Task 2 installs none of them.
+
+**Consequence.** Since the plan's downstream globs look for `*.fasta` directly under the
+accession directory, and VNom writes to `4_final_clusters`, even a VNom run that succeeded
+would have produced zero pooled candidates — a silent empty result at Task 10, propagating
+to an empty GATE 3 and a false negative finding.
+
+**Fix.** `scripts/08_run_vnom.sh` renames input to `<ACC>_contigs.fasta`, substitutes the
+accession for `NODE`, strips N-containing contigs as the README's example does, runs VNom
+from inside a per-accession directory with the bare stem, and treats a missing
+`4_final_clusters` as the documented "nothing nominated" outcome rather than an error.
+`scripts/03_positive_control.sh` and `scripts/11_replication_matrix.py` read from
+`4_final_clusters`.
+
+---
+
 ## OPEN-A — NCBI E-utilities are unreachable from the build environment
 
 `esearch`/`efetch` (Task 5 Step 1, Task 6 Step 3) could not be exercised here:
@@ -355,11 +436,25 @@ if NCBI reorders.
 (`connect_rejected`, gateway 403). The scripts are written as specified and marked
 cluster-only; they are **unvalidated against a live NCBI response**.
 
-Per the session's scope decision, an **offline fallback** is also provided
-(`scripts/04b_select_accessions_offline.sh`) that enumerates accessions from Logan's own
-`stats/logan_accessions_v1.2_SRA2025.csv.zst` (11.0 GiB) joined to `stats/sra_taxid.csv.zst`
-(424 MiB), removing the hard NCBI dependency for niche selection. Run whichever your
-environment permits; `docs/RUNBOOK.md` says what to run first on a machine with NCBI access.
+**Resolved for niche selection.** `scripts/04b_select_accessions_offline.sh` enumerates
+accessions from Logan's own `stats/logan_accessions_v1.2_SRA2025.csv.zst` (11.0 GiB) joined
+to `stats/sra_taxid.csv.zst` (424 MiB). Decompressing the headers on 2026-08-19 confirmed
+the accession table carries `acc, assay_type, center_name, librarysource, organism,
+platform, bioproject` — including **BioProject and CenterName**. That was not a given, and
+it matters: GATE 3 rests entirely on BioProject independence, so an offline path lacking it
+could have found candidates but never validated them.
+
+Still NCBI-only: the SK36 run enumeration in `scripts/03_positive_control.sh`, which accepts
+`--runs FILE` as a manual substitute. `docs/RUNBOOK.md` says what to run where.
+
+**A caveat on niche size.** Filtering a 120 MB slice of the accession table found 11 rumen
+keyword hits, all AMPLICON or WGS against METAGENOMIC/GENOMIC source — i.e. DNA — and none
+passing the RNA-Seq filter. Do **not** extrapolate a niche size from that: the table is
+sorted by `center_name`, so a prefix slice is a biased sample of sequencing centers rather
+than a random sample of the archive. A full pass is required before concluding whether the
+rumen metatranscriptome clears the plan's own 200-run floor. The vocabulary itself is
+confirmed correct: `RNA-Seq` appears 75,366 times and `METATRANSCRIPTOMIC` 2,101 times in
+that slice.
 
 ---
 
@@ -403,7 +498,7 @@ unaudited.
 | VNom CLI entry point and flags | VNom README | Not checked — `api.github.com` returns 403 here. `raw.githubusercontent.com` is reachable, so `scripts/01` fetches the README directly for you to read. |
 | circuclust flags | circuclust README | Same as above. |
 
-`scripts/15_audit_claims.sh` re-runs every check in this table that can be automated, so
+`scripts/18_audit_claims.sh` re-runs every check in this table that can be automated, so
 this section can be refreshed rather than re-derived.
 
 ---

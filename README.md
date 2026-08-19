@@ -92,7 +92,7 @@ config/config.sh          single source of truth — all paths and thresholds
 config/niche_query.txt    the Entrez query defining the target niche
 env/environment.yml       conda spec
 ref/                      built once by scripts/01–02, never edited by hand
-scripts/                  00 → 15, run in order
+scripts/                  00 → 18, run in order
 work/                     scratch, safe to delete
 results/                  the only directory that matters for the poster
 docs/PLAN.original.md     the original plan, verbatim and unmodified
@@ -118,7 +118,7 @@ abundance — the most-replicated element is the least likely to be an artifact.
   sweep can be reproduced as a control.
 - Published parameters from Zheludev et al. are reproduced exactly and are marked in the code
   as scientific constants.
-- `scripts/15_audit_claims.sh` re-checks every automatable factual claim, so the record can be
+- `scripts/18_audit_claims.sh` re-checks every automatable factual claim, so the record can be
   refreshed rather than re-derived.
 
 ## Before quoting any number

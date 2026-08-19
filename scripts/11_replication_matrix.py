@@ -93,7 +93,11 @@ def main() -> int:
         die(f"[11_replication_matrix] no accession directories under {vnom_root} (exit 2)", 2)
 
     for acc in accs:
-        path = os.path.join(vnom_root, acc)
+        # VNom writes to a 4_final_clusters subdirectory (see C-15); fall back to
+        # the accession directory itself so a hand-placed FASTA still works.
+        path = os.path.join(vnom_root, acc, "4_final_clusters")
+        if not os.path.isdir(path):
+            path = os.path.join(vnom_root, acc)
         fastas = sorted(f for f in os.listdir(path)
                         if f.endswith((".fasta", ".fa", ".fna")))
         if not fastas:

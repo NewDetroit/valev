@@ -5,7 +5,7 @@
 **Original, unmodified:** [`docs/PLAN.original.md`](docs/PLAN.original.md)
 **Every deviation from it:** [`docs/CORRECTIONS.md`](docs/CORRECTIONS.md)
 
-> This is the **working** plan. It differs from the original in 13 numbered places, each of
+> This is the **working** plan. It differs from the original in 15 numbered places, each of
 > which is a defect that would have produced a wrong result or wasted compute. Where a step
 > below carries a `C-nn` tag, read that correction before changing the step back.
 
@@ -104,12 +104,12 @@ scripts/09_circularity_check.py         Phase 5 — see C-12
 scripts/10_exclude_known.sh             Phase 5
 scripts/11_replication_matrix.py        Phase 5 — GATE 3, see C-08
 scripts/12_junction_mapping.sh          Phase 5 — the strongest evidence in the project
-scripts/12_rnafold.sh                   Phase 6
-scripts/13_colabfold_prep.py            Phase 6
-scripts/14_foldseek.sh                  Phase 6
-scripts/10_cluster.sh                   Phase 6 — circuclust nomenclature
-scripts/15_wetlab_package.py            Phase 7
-scripts/15_audit_claims.sh              refreshes the OPEN-C claim table
+scripts/13_rnafold.sh                   Phase 6
+scripts/14_colabfold_prep.py            Phase 6
+scripts/15_foldseek.sh                  Phase 6
+scripts/16_cluster.sh                   Phase 6 — circuclust nomenclature
+scripts/17_wetlab_package.py            Phase 7
+scripts/18_audit_claims.sh              refreshes the OPEN-C claim table
 work/ logs/                   disposable
 results/                      the only directory that matters for the poster
 tests/                        unit tests for the pure logic
@@ -359,7 +359,7 @@ sequencing centers, and platforms.
 
 ### Task 13 — RNA secondary structure
 
-`scripts/12_rnafold.sh`
+`scripts/13_rnafold.sh`
 
 - [ ] Fold every validated candidate; generate plots for the top candidate.
 - [ ] **Look for the rod-like fold** — part of the Obelisk definition, and a striking visual.
@@ -369,7 +369,7 @@ sequencing centers, and platforms.
 
 ### Task 14 — Protein structure, and the phylogeny
 
-`scripts/13_colabfold_prep.py`, `scripts/14_foldseek.sh`, `scripts/10_cluster.sh`
+`scripts/14_colabfold_prep.py`, `scripts/15_foldseek.sh`, `scripts/16_cluster.sh`
 
 - [ ] Predict structures with ColabFold. **Record pLDDT for every model**; treat <70 as low
       confidence and say so. (The original quotes a mean pLDDT of 83.8 for Oblin-1 — that figure
@@ -390,7 +390,7 @@ sequencing centers, and platforms.
 
 ### Task 15 — Build the confirmation request
 
-`scripts/15_wetlab_package.py`, `scripts/15_audit_claims.sh`
+`scripts/17_wetlab_package.py`, `scripts/18_audit_claims.sh`
 
 - [ ] Rank by **independence**, not abundance: `n_bioprojects*3 + n_centers*2 + n_platforms`.
       The most-replicated element is the least likely to be an artifact.
@@ -420,7 +420,7 @@ Flagged rather than papered over. Full detail in `docs/CORRECTIONS.md`.
 3. **`OPEN-C`** — several literature figures the original plan quotes could not be checked from
    the build environment, including the 1,744 stringent Obelisks, the 40 marine Obelisks, the
    Oblin-1 mean pLDDT of 83.8, and the Foldseek E-value of 0.31. They are carried forward
-   **unaudited and marked as such**. `scripts/15_audit_claims.sh` refreshes what can be
+   **unaudited and marked as such**. `scripts/18_audit_claims.sh` refreshes what can be
    automated.
 4. **VNom and circuclust CLIs** — the *parameters* come from published methods and are reliable;
    the *invocation* is isolated behind one variable per tool so there is a single place to fix.
